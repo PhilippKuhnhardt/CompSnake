@@ -29,6 +29,7 @@ class SnakeHead:
         self.picture = picture
         self.image = pygame.image.load(picture)
         self.rect = self.image.get_rect()
+        snakeparts.append(self)
 
     def set_speed(self):
         if self.direction == 0:
@@ -76,6 +77,7 @@ class SnakeTail:
         self.standardStep = standard_step
         self.appended = False
         self.direction = direction
+        snakeparts.append(self)
 
     def move(self, position, direction):
         if self.appended:
@@ -83,6 +85,7 @@ class SnakeTail:
         self.rect.topleft = position
         self.lastDirection = direction
         self.direction = direction
+        screen.blit(self.image, self.rect)
 
     def append_snake(self):
         if not self.appended:
@@ -104,7 +107,6 @@ class SnakeTail:
             self.tail.append_snake()
 
 
-
 pygame.init()
 
 size = width, height = 660, 480
@@ -116,6 +118,7 @@ background = black
 minTimeBetweenMovement = 1 / 8  # Time between 2 updates in seconds
 lastUpdate = time.time()
 
+snakeparts = []
 snake = SnakeHead("redSnake.png")
 apple = Apple()
 
@@ -157,18 +160,7 @@ while True:
         background = red
 
     screen.fill(background)
-    screen.blit(snake.image, snake.rect)
     screen.blit(apple.image, apple.rect)
-
-    if snake.length >= 2:
-        screen.blit(snake.tail.image, snake.tail.rect)
-        tailPiece = snake.tail
-
-        while tailPiece.appended:
-            print(tailPiece.appended, "old")
-            screen.blit(tailPiece.tail.image, tailPiece.tail.rect)
-            tailPiece = tailPiece.tail
-            print(tailPiece.appended)
-
-
+    for x in range(0, snakeparts.__len__()):
+        screen.blit(snakeparts[x].image, snakeparts[x].rect)
     pygame.display.flip()
