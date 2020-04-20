@@ -22,6 +22,7 @@ class SnakeHead:
     standardStep = 30
     speed = [0, 0]
     direction = -1  # 0 = UP, 1 = RIGHT, 2 = DOWN, 3 == LEFT, -1 = STANDING
+    lastDirection = -1
     length = 1
 
     def __init__(self, picture):
@@ -43,14 +44,14 @@ class SnakeHead:
 
     def move(self):
         if self.length > 1:
-            self.tail.move(self.rect.topleft)
+            self.tail.move(self.rect.topleft, self.lastDirection)
         self.rect = self.rect.move(snake.speed)
 
     def append_snake(self):
         self.length += 1
 
         if self.length == 2:
-            self.tail = SnakeTail(self.picture, self.standardStep)
+            self.tail = SnakeTail(self.picture, self.standardStep, self.lastDirection)
             position = list(self.rect.topleft)
 
             if self.direction == 0:
@@ -62,20 +63,46 @@ class SnakeHead:
             elif self.direction == 3:
                 position[0] = position[0] + self.standardStep
 
-            self.tail.move(tuple(position))
+            self.tail.move(tuple(position), self.lastDirection)
         else:
-            pass
+            self.tail.append_snake()
 
 
 class SnakeTail:
-    def __init__(self, picture, standard_step):
+    def __init__(self, picture, standard_step, direction):
         self.picture = picture
         self.image = pygame.image.load(picture)
         self.rect = self.image.get_rect()
         self.standardStep = standard_step
+        self.appended = False
+        self.direction = direction
 
-    def move(self, position):
+    def move(self, position, direction):
+        if self.appended:
+            self.tail.move(self.rect.topleft, self.lastDirection)
         self.rect.topleft = position
+        self.lastDirection = direction
+        self.direction = direction
+
+    def append_snake(self):
+        if not self.appended:
+            self.appended = True
+            self.tail = SnakeTail(self.picture, self.standardStep, self.lastDirection)
+            position = list(self.rect.topleft)
+
+            if self.direction == 0:
+                position[1] = position[1] + self.standardStep
+            elif self.direction == 1:
+                position[0] = position[0] - self.standardStep
+            elif self.direction == 2:
+                position[1] = position[1] - self.standardStep
+            elif self.direction == 3:
+                position[0] = position[0] + self.standardStep
+
+            self.tail.move(tuple(position), self.lastDirection)
+        else:
+            self.tail.append_snake()
+
 
 
 pygame.init()
@@ -86,7 +113,7 @@ black = 0, 0, 0
 red = 255, 0, 0
 background = black
 
-minTimeBetweenMovement = 1 / 4  # Time between 2 updates in seconds
+minTimeBetweenMovement = 1 / 8  # Time between 2 updates in seconds
 lastUpdate = time.time()
 
 snake = SnakeHead("redSnake.png")
@@ -104,12 +131,16 @@ while True:
             if event.key == K_ESCAPE:
                 sys.exit()
             if event.key == K_UP:
+                snake.lastDirection = snake.direction
                 snake.direction = 0
             if event.key == K_DOWN:
+                snake.lastDirection = snake.direction
                 snake.direction = 2
             if event.key == K_RIGHT:
+                snake.lastDirection = snake.direction
                 snake.direction = 1
             if event.key == K_LEFT:
+                snake.lastDirection = snake.direction
                 snake.direction = 3
             snake.set_speed()
 
@@ -117,7 +148,6 @@ while True:
         lastUpdate = time.time()
         snake.move()
         if snake.rect.colliderect(apple.rect):
-            print("Apple eaten")
             apple.spawn_apple()
             snake.append_snake()
 
@@ -130,7 +160,15 @@ while True:
     screen.blit(snake.image, snake.rect)
     screen.blit(apple.image, apple.rect)
 
-    if snake.length == 2:
+    if snake.length >= 2:
         screen.blit(snake.tail.image, snake.tail.rect)
+        tailPiece = snake.tail
+
+        while tailPiece.appended:
+            print(tailPiece.appended, "old")
+            screen.blit(tailPiece.tail.image, tailPiece.tail.rect)
+            tailPiece = tailPiece.tail
+            print(tailPiece.appended)
+
 
     pygame.display.flip()
