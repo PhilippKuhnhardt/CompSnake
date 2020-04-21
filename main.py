@@ -5,9 +5,9 @@ import time
 import random
 from pygame.locals import *
 
-
 snakepartsPlayer = []
 snakepartsEnemy = []
+
 
 class Apple:
     def __init__(self):
@@ -103,6 +103,7 @@ class SnakeHead(SnakePart):
         return False
 
     def calculate_direction(self, apple_target):
+        # TODO: Snake can't reverse
         # Calculates the optimal direction for the AI snake
         options = [0, 0, 0, 0]  # options[x] shows the weight for this direction
         x = self.rect.topleft[0]
@@ -113,11 +114,16 @@ class SnakeHead(SnakePart):
         max_y = height - standardSize
         apple_x = apple_target.rect.topleft[0]
         apple_y = apple_target.rect.topleft[1]
-
-        # Removing the illegal option by giving it a weight of -10000
-        for i in range(0, 5):
-            if not self.check_movement_legality(i):
-                options[i] -= 10000
+        player_x = []
+        player_y = []
+        for i in range(0, snakepartsPlayer.__len__()):
+            player_x.append(snakepartsPlayer[i].rect.topleft[0])
+            player_y.append(snakepartsPlayer[i].rect.topleft[1])
+        enemy_x = []
+        enemy_y = []
+        for i in range(1, snakepartsEnemy.__len__()):
+            enemy_x.append(snakepartsEnemy[i].rect.topleft[0])
+            enemy_y.append(snakepartsEnemy[i].rect.topleft[1])
 
         # Heavily discouraging the option to move into a wall by giving it a weight of -1000
         if x == min_x:
@@ -129,6 +135,29 @@ class SnakeHead(SnakePart):
         if y == max_y:
             options[2] -= 1000
 
+        # Heavily discouraging the option to move into the player by giving it a weight of -1000
+        # TODO: This still needs heavy work, snake doesn't always avoid player or itself. Also merge those 2
+        if x + standardSize in player_x and y in player_y:
+            options[1] -= 1000
+        if x - standardSize in player_x and y in player_y:
+            options[3] -= 1000
+        if y + standardSize in player_y and x in player_x:
+            options[2] -= 1000
+        if y - standardSize in player_y and x in player_x:
+            options[0] -= 1000
+
+        # Heavily discouraging the option to move into the own tail by giving it a weight of -1000
+        # TODO: This still needs heavy work, snake doesn't always avoid player or itself. Also merge those 2
+
+        if x + standardSize in enemy_x and y in enemy_y:
+            options[1] -= 1000
+        if x - standardSize in enemy_x and y in enemy_y:
+            options[3] -= 1000
+        if y + standardSize in enemy_y and x in enemy_x:
+            options[2] -= 1000
+        if y - standardSize in enemy_y and x in enemy_x:
+            options[0] -= 1000
+
         # Encouraging the option to move closer to the apple, by giving a positive weight of 50
         if x > apple_x:
             options[3] += 50
@@ -139,8 +168,27 @@ class SnakeHead(SnakePart):
         elif y < apple_y:
             options[2] += 50
 
-        print("Best option: ", str(options.index(max(options))))
-        return options.index(max(options))
+        best_option = options.index(max(options))
+
+        # If the selected movement is going backwards, heavily discourage it and encourage not going straight
+        if not self.check_movement_legality(best_option):
+            options[best_option] -= 10000
+            if best_option == 0:
+                options[1] += 80
+                options[3] += 80
+            elif best_option == 1:
+                options[0] += 80
+                options[2] += 80
+            elif best_option == 2:
+                options[1] += 80
+                options[3] += 80
+            else:
+                options[0] += 80
+                options[2] += 80
+
+        best_option = options.index(max(options))
+
+        return best_option
 
 
 class SnakeTail(SnakePart):
@@ -223,7 +271,6 @@ while game.gameRunning:
     # Checking if enough time has passed to move, only checks when player started moving
     if not tempDirection == -1:
         if time.time() - lastUpdate >= minTimeBetweenMovement:
-            print("We are moving now")
             lastUpdate = time.time()
             # Move player snake
             if snake.check_movement_legality(tempDirection):
@@ -233,7 +280,6 @@ while game.gameRunning:
 
             # Move enemy snake
             enemy.direction = enemy.calculate_direction(apple)
-            print("Moving towards: ", str(enemy.direction))
             enemy.set_speed()
             enemy.move()
 
@@ -271,7 +317,9 @@ while game.gameRunning:
         if snakepartsPlayer[0].rect.colliderect(snakepartsEnemy[x]):
             game.stop_game("Verloren!" + " Schlangenlänge: " + str(snakepartsPlayer.__len__() - 1))
 
-    # TODO: CHECK SNAKE Head2Head COLLISION
+    # Checking for head to head collision
+    if snakepartsPlayer[0].rect.colliderect(snakepartsEnemy[0]):
+        game.stop_game("Unentschieden!" + " Schlangenlänge: " + str(snakepartsPlayer.__len__() - 1))
 
     # Drawing
     screen.fill(background)
@@ -282,7 +330,6 @@ while game.gameRunning:
         screen.blit(snakepartsEnemy[x].image, snakepartsEnemy[x].rect)
     pygame.display.flip()
 
-# TODO: SHOW WINNER AND SCORE
 if pygame.font:
     font = pygame.font.Font(None, 50)
     text = font.render(game.endMessage, 1, red)
