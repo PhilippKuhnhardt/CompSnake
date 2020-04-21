@@ -18,18 +18,36 @@ class Apple:
         return [random.randrange(0, width, standardSize), random.randrange(0, height, standardSize)]
 
 
-class SnakeHead:
+class SnakePart:
     standardStep = 30
-    speed = [0, 0]
-    direction = -1  # 0 = UP, 1 = RIGHT, 2 = DOWN, 3 == LEFT, -1 = STANDING
     lastDirection = -1
-    length = 1
+    direction = -1  # 0 = UP, 1 = RIGHT, 2 = DOWN, 3 == LEFT, -1 = STANDING
 
     def __init__(self, picture):
         self.picture = picture
         self.image = pygame.image.load(picture)
         self.rect = self.image.get_rect()
         snakeparts.append(self)
+
+    def build_tail(self):
+        self.tail = SnakeTail(self.picture)
+        position = list(self.rect.topleft)
+
+        if self.direction == 0:
+            position[1] = position[1] + self.standardStep
+        elif self.direction == 1:
+            position[0] = position[0] - self.standardStep
+        elif self.direction == 2:
+            position[1] = position[1] - self.standardStep
+        elif self.direction == 3:
+            position[0] = position[0] + self.standardStep
+
+        self.tail.move(tuple(position), self.direction)
+
+
+class SnakeHead(SnakePart):
+    speed = [0, 0]
+    length = 1
 
     def set_speed(self):
         if self.direction == 0:
@@ -52,57 +70,28 @@ class SnakeHead:
         self.length += 1
 
         if self.length == 2:
-            self.tail = SnakeTail(self.picture, self.standardStep, self.lastDirection)
-            position = list(self.rect.topleft)
-
-            if self.direction == 0:
-                position[1] = position[1] + self.standardStep
-            elif self.direction == 1:
-                position[0] = position[0] - self.standardStep
-            elif self.direction == 2:
-                position[1] = position[1] - self.standardStep
-            elif self.direction == 3:
-                position[0] = position[0] + self.standardStep
-
-            self.tail.move(tuple(position), self.lastDirection)
+            self.build_tail()
         else:
             self.tail.append_snake()
 
 
-class SnakeTail:
-    def __init__(self, picture, standard_step, direction):
-        self.picture = picture
-        self.image = pygame.image.load(picture)
-        self.rect = self.image.get_rect()
-        self.standardStep = standard_step
+class SnakeTail(SnakePart):
+    def __init__(self, picture):
+        SnakePart.__init__(self, picture)
         self.appended = False
-        self.direction = direction
-        snakeparts.append(self)
 
     def move(self, position, direction):
         if self.appended:
             self.tail.move(self.rect.topleft, self.lastDirection)
         self.rect.topleft = position
-        self.lastDirection = direction
+        self.lastDirection = self.direction
         self.direction = direction
         screen.blit(self.image, self.rect)
 
     def append_snake(self):
         if not self.appended:
             self.appended = True
-            self.tail = SnakeTail(self.picture, self.standardStep, self.lastDirection)
-            position = list(self.rect.topleft)
-
-            if self.direction == 0:
-                position[1] = position[1] + self.standardStep
-            elif self.direction == 1:
-                position[0] = position[0] - self.standardStep
-            elif self.direction == 2:
-                position[1] = position[1] - self.standardStep
-            elif self.direction == 3:
-                position[0] = position[0] + self.standardStep
-
-            self.tail.move(tuple(position), self.lastDirection)
+            self.build_tail()
         else:
             self.tail.append_snake()
 
@@ -115,7 +104,7 @@ black = 0, 0, 0
 red = 255, 0, 0
 background = black
 
-minTimeBetweenMovement = 1 / 8  # Time between 2 updates in seconds
+minTimeBetweenMovement = 1 / 4  # Time between 2 updates in seconds
 lastUpdate = time.time()
 
 snakeparts = []
@@ -124,6 +113,8 @@ apple = Apple()
 
 screen = pygame.display.set_mode(size)
 clock = pygame.time.Clock()
+
+tempDirection = -1
 
 while True:
 
@@ -134,21 +125,19 @@ while True:
             if event.key == K_ESCAPE:
                 sys.exit()
             if event.key == K_UP:
-                snake.lastDirection = snake.direction
-                snake.direction = 0
+                tempDirection = 0
             if event.key == K_DOWN:
-                snake.lastDirection = snake.direction
-                snake.direction = 2
+                tempDirection = 2
             if event.key == K_RIGHT:
-                snake.lastDirection = snake.direction
-                snake.direction = 1
+                tempDirection = 1
             if event.key == K_LEFT:
-                snake.lastDirection = snake.direction
-                snake.direction = 3
-            snake.set_speed()
+                tempDirection = 3
 
     if time.time() - lastUpdate >= minTimeBetweenMovement:
         lastUpdate = time.time()
+        snake.lastDirection = snake.direction
+        snake.direction = tempDirection
+        snake.set_speed()
         snake.move()
         if snake.rect.colliderect(apple.rect):
             apple.spawn_apple()
