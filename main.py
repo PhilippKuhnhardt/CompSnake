@@ -20,8 +20,7 @@ class Apple:
 
 class SnakePart:
     standardStep = 30
-    lastDirection = -1
-    direction = -1  # 0 = UP, 1 = RIGHT, 2 = DOWN, 3 == LEFT, -1 = STANDING
+    lastPosition = None
 
     def __init__(self, picture):
         self.picture = picture
@@ -31,23 +30,13 @@ class SnakePart:
 
     def build_tail(self):
         self.tail = SnakeTail(self.picture)
-        position = list(self.rect.topleft)
-
-        if self.direction == 0:
-            position[1] = position[1] + self.standardStep
-        elif self.direction == 1:
-            position[0] = position[0] - self.standardStep
-        elif self.direction == 2:
-            position[1] = position[1] - self.standardStep
-        elif self.direction == 3:
-            position[0] = position[0] + self.standardStep
-
-        self.tail.move(tuple(position), self.direction)
+        self.tail.move(self.lastPosition)
 
 
 class SnakeHead(SnakePart):
     speed = [0, 0]
     length = 1
+    direction = -1  # 0 = UP, 1 = RIGHT, 2 = DOWN, 3 == LEFT, -1 = STANDING
 
     def set_speed(self):
         if self.direction == 0:
@@ -62,8 +51,9 @@ class SnakeHead(SnakePart):
             self.speed = [0, 0]
 
     def move(self):
+        self.lastPosition = self.rect.topleft
         if self.length > 1:
-            self.tail.move(self.rect.topleft, self.lastDirection)
+            self.tail.move(self.lastPosition)
         self.rect = self.rect.move(snake.speed)
 
     def append_snake(self):
@@ -80,12 +70,11 @@ class SnakeTail(SnakePart):
         SnakePart.__init__(self, picture)
         self.appended = False
 
-    def move(self, position, direction):
+    def move(self, position):
+        self.lastPosition = self.rect.topleft
         if self.appended:
-            self.tail.move(self.rect.topleft, self.lastDirection)
+            self.tail.move(self.lastPosition)
         self.rect.topleft = position
-        self.lastDirection = self.direction
-        self.direction = direction
         screen.blit(self.image, self.rect)
 
     def append_snake(self):
@@ -104,7 +93,7 @@ black = 0, 0, 0
 red = 255, 0, 0
 background = black
 
-minTimeBetweenMovement = 1 / 4  # Time between 2 updates in seconds
+minTimeBetweenMovement = 1 / 8  # Time between 2 updates in seconds
 lastUpdate = time.time()
 
 snakeparts = []
@@ -135,7 +124,6 @@ while True:
 
     if time.time() - lastUpdate >= minTimeBetweenMovement:
         lastUpdate = time.time()
-        snake.lastDirection = snake.direction
         snake.direction = tempDirection
         snake.set_speed()
         snake.move()
