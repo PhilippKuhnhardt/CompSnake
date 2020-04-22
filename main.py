@@ -11,8 +11,13 @@ snakepartsEnemy = []
 
 class Apple:
     def __init__(self):
-        self.image = pygame.image.load("apple.png")
-        self.rect = self.image.get_rect().move(self.get_apple_spawn_location())
+        fullname = os.path.join('resources', "apple.png")
+        try:
+            self.image = pygame.image.load(fullname)
+            self.rect = self.image.get_rect().move(self.get_apple_spawn_location())
+        except pygame.error as message:
+            print('Cannot load image:', fullname)
+            raise SystemExit(message)
 
     def spawn_apple(self):
         good_location = False
@@ -37,9 +42,16 @@ class SnakePart:
 
     def __init__(self, picture, is_ki):
         self.isKI = is_ki
-        self.picture = picture
-        self.image = pygame.image.load(picture)
-        self.rect = self.image.get_rect()
+
+        fullname = os.path.join('resources', picture)
+        try:
+            self.picture = picture
+            self.image = pygame.image.load(fullname)
+            self.rect = self.image.get_rect()
+        except pygame.error as message:
+            print('Cannot load image:', fullname)
+            raise SystemExit(message)
+
         if not self.isKI:
             snakepartsPlayer.append(self)
         else:
@@ -103,7 +115,7 @@ class SnakeHead(SnakePart):
         return False
 
     def calculate_direction(self, apple_target):
-        # TODO: Snake can't reverse
+        # TODO: Discourage going next to a wall or player by a slight -10 penalty, so the snake doesn't get trapped as easily
         # Calculates the optimal direction for the AI snake
         options = [0, 0, 0, 0]  # options[x] shows the weight for this direction
         x = self.rect.topleft[0]
@@ -114,16 +126,12 @@ class SnakeHead(SnakePart):
         max_y = height - standardSize
         apple_x = apple_target.rect.topleft[0]
         apple_y = apple_target.rect.topleft[1]
-        player_x = []
-        player_y = []
+        player_positions = []
         for i in range(0, snakepartsPlayer.__len__()):
-            player_x.append(snakepartsPlayer[i].rect.topleft[0])
-            player_y.append(snakepartsPlayer[i].rect.topleft[1])
-        enemy_x = []
-        enemy_y = []
+            player_positions.append(snakepartsPlayer[i].rect.topleft)
+        enemy_positions = []
         for i in range(1, snakepartsEnemy.__len__()):
-            enemy_x.append(snakepartsEnemy[i].rect.topleft[0])
-            enemy_y.append(snakepartsEnemy[i].rect.topleft[1])
+            enemy_positions.append(snakepartsEnemy[i].rect.topleft)
 
         # Heavily discouraging the option to move into a wall by giving it a weight of -1000
         if x == min_x:
@@ -136,26 +144,13 @@ class SnakeHead(SnakePart):
             options[2] -= 1000
 
         # Heavily discouraging the option to move into the player by giving it a weight of -1000
-        # TODO: This still needs heavy work, snake doesn't always avoid player or itself. Also merge those 2
-        if x + standardSize in player_x and y in player_y:
+        if self.calculate_position(self.rect.topleft, 1) in player_positions or self.calculate_position(self.rect.topleft, 1) in enemy_positions:
             options[1] -= 1000
-        if x - standardSize in player_x and y in player_y:
+        if self.calculate_position(self.rect.topleft, 3) in player_positions or self.calculate_position(self.rect.topleft, 3) in enemy_positions:
             options[3] -= 1000
-        if y + standardSize in player_y and x in player_x:
+        if self.calculate_position(self.rect.topleft, 2) in player_positions or self.calculate_position(self.rect.topleft, 2) in enemy_positions:
             options[2] -= 1000
-        if y - standardSize in player_y and x in player_x:
-            options[0] -= 1000
-
-        # Heavily discouraging the option to move into the own tail by giving it a weight of -1000
-        # TODO: This still needs heavy work, snake doesn't always avoid player or itself. Also merge those 2
-
-        if x + standardSize in enemy_x and y in enemy_y:
-            options[1] -= 1000
-        if x - standardSize in enemy_x and y in enemy_y:
-            options[3] -= 1000
-        if y + standardSize in enemy_y and x in enemy_x:
-            options[2] -= 1000
-        if y - standardSize in enemy_y and x in enemy_x:
+        if self.calculate_position(self.rect.topleft, 0) in player_positions or self.calculate_position(self.rect.topleft, 0) in enemy_positions:
             options[0] -= 1000
 
         # Encouraging the option to move closer to the apple, by giving a positive weight of 50
@@ -187,9 +182,20 @@ class SnakeHead(SnakePart):
                 options[2] += 80
 
         best_option = options.index(max(options))
-
+        print(options)
         return best_option
 
+    def calculate_position(self, current_position, direction):
+        if direction == 0:
+            change = [0, -self.standardStep]
+        elif direction == 1:
+            change = [self.standardStep, 0]
+        elif direction == 2:
+            change = [0, self.standardStep]
+        else:
+            change = [-self.standardStep, 0]
+        result = tuple(map(sum, zip(current_position, change)))
+        return result
 
 class SnakeTail(SnakePart):
     def __init__(self, picture, is_ki):
@@ -235,6 +241,7 @@ minTimeBetweenMovement = 1 / 6  # Time between 2 updates in seconds
 lastUpdate = time.time()
 
 starting_location_player = (0, 0)
+
 snake = SnakeHead("redSnake.png", starting_location_player, False)
 
 starting_location_enemy = (width - standardSize, height - standardSize)
